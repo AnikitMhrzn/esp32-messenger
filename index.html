@@ -35,7 +35,11 @@
   button:disabled { opacity: .45; cursor: default; }
   #status { margin-left: 12px; color: var(--muted); font-size: .95rem; }
   .row { display: flex; gap: 10px; }
-  #msg {
+  .row + .row { margin-top: 10px; }
+  label.fieldLabel {
+    display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px;
+  }
+  #name, #msg {
     flex: 1; min-width: 0; padding: 10px 12px; font-size: 1rem;
     border: 1px solid var(--border); border-radius: 8px;
     background: var(--bg); color: var(--text);
@@ -57,6 +61,16 @@
 <body>
 <main>
   <h1>ESP32-S3 Messenger</h1>
+
+  <div class="card">
+    <label class="fieldLabel" for="name">Your name</label>
+    <div class="row">
+      <input id="name" type="text" placeholder="e.g. Alice" autocomplete="off" maxlength="20">
+    </div>
+    <p id="nameHint" style="margin:8px 0 0; font-size:.85rem; color:var(--muted);">
+      Shown to everyone else connected. Saved on this device.
+    </p>
+  </div>
 
   <div class="card">
     <button id="connectBtn">Connect</button>
@@ -89,10 +103,13 @@
   const WRITE_UUID   = '87654321-4321-8765-4321-876543218765'; // web -> ESP
   const NOTIFY_UUID  = '87654321-4321-8765-4321-876543218766'; // ESP -> web
   const MAX_BYTES    = 100;
+  const NAME_KEY     = 'esp32MessengerName';
+  const DEFAULT_NAME = 'Anon';
 
   const connectBtn = document.getElementById('connectBtn');
   const sendBtn    = document.getElementById('sendBtn');
   const msgInput   = document.getElementById('msg');
+  const nameInput  = document.getElementById('name');
   const statusEl   = document.getElementById('status');
   const hintEl     = document.getElementById('hint');
   const recvEl     = document.getElementById('recv');
@@ -100,6 +117,17 @@
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let writeChar = null;
+
+  // --- Name persistence -----------------------------------------------
+  nameInput.value = localStorage.getItem(NAME_KEY) || '';
+  nameInput.addEventListener('change', () => {
+    localStorage.setItem(NAME_KEY, nameInput.value.trim());
+  });
+
+  function currentName() {
+    const n = nameInput.value.trim();
+    return n || DEFAULT_NAME;
+  }
 
   function setHint(text, isError) {
     hintEl.textContent = text;
@@ -168,9 +196,10 @@
     const text = msgInput.value.trim();
     if (!text || !writeChar) return;
 
-    const data = encoder.encode(text);
+    const payload = currentName() + ': ' + text;
+    const data = encoder.encode(payload);
     if (data.length > MAX_BYTES) {
-      setHint('Message too long (' + data.length + ' bytes, max ' + MAX_BYTES + ')', true);
+      setHint('Message too long with name (' + data.length + ' bytes, max ' + MAX_BYTES + ')', true);
       return;
     }
 
